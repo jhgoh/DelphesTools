@@ -15,61 +15,61 @@ void delphes2Image(const std::string finName, const std::string foutName)
 {
   // Prepare output tree
   TFile* fout = TFile::Open(foutName.c_str(), "recreate");
-  TTree* tree = new TTree("tree", "tree");
+  TTree* tree = new TTree("Events", "Events");
 
-  unsigned short b_run = 1;
-  unsigned int b_event = 0;
+  unsigned int b_run = 1;
+  unsigned long b_event = 0;
   float b_weight = 0;
 
   float b_MET_pt, b_MET_phi;
 
-  const unsigned short Muon_N = 100;
-  unsigned short b_nMuon;
+  const unsigned int Muon_N = 100;
+  unsigned int b_nMuon;
   float b_Muon_pt[Muon_N], b_Muon_eta[Muon_N], b_Muon_phi[Muon_N], b_Muon_m[Muon_N];
-  short b_Muon_q[Muon_N];
+  int b_Muon_charge[Muon_N];
   float b_Muon_relIso[Muon_N];
 
-  const unsigned short Electron_N = 100;
-  unsigned short b_nElectron;
+  const unsigned int Electron_N = 100;
+  unsigned int b_nElectron;
   float b_Electron_pt[Electron_N], b_Electron_eta[Electron_N], b_Electron_phi[Electron_N], b_Electron_m[Electron_N];
-  short b_Electron_q[Electron_N];
+  int b_Electron_charge[Electron_N];
   float b_Electron_relIso[Electron_N];
 
-  const unsigned short Jet_N = 100;
-  unsigned short b_nJet;
+  const unsigned int Jet_N = 100;
+  unsigned int b_nJet;
   float b_Jet_pt[Jet_N], b_Jet_eta[Jet_N], b_Jet_phi[Jet_N], b_Jet_m[Jet_N];
-  short b_Jet_flav[Jet_N];
+  int b_Jet_flav[Jet_N];
   float b_Jet_bTag[Jet_N];
 
-  tree->Branch("run", &b_run, "run/s");
-  tree->Branch("event", &b_event, "event/i");
+  tree->Branch("run", &b_run, "run/i");
+  tree->Branch("event", &b_event, "event/l");
   tree->Branch("weight", &b_weight, "weight/F");
 
   tree->Branch("MET_pt", &b_MET_pt, "MET_pt/F");
   tree->Branch("MET_phi", &b_MET_phi, "MET_phi/F");
 
-  tree->Branch("nMuon", &b_nMuon, "nMuon/s");
+  tree->Branch("nMuon", &b_nMuon, "nMuon/i");
   tree->Branch("Muon_pt", b_Muon_pt, "Muon_pt[nMuon]/F");
   tree->Branch("Muon_eta", b_Muon_eta, "Muon_eta[nMuon]/F");
   tree->Branch("Muon_phi", b_Muon_phi, "Muon_phi[nMuon]/F");
   tree->Branch("Muon_m", b_Muon_m, "Muon_m[nMuon]/F");
-  tree->Branch("Muon_q", b_Muon_q, "Muon_q[nMuon]/S");
+  tree->Branch("Muon_charge", b_Muon_charge, "Muon_charge[nMuon]/I");
   tree->Branch("Muon_relIso", b_Muon_relIso, "Muon_relIso[nMuon]/F");
 
-  tree->Branch("nElectron", &b_nElectron, "nElectron/s");
+  tree->Branch("nElectron", &b_nElectron, "nElectron/i");
   tree->Branch("Electron_pt", b_Electron_pt, "Electron_pt[nElectron]/F");
   tree->Branch("Electron_eta", b_Electron_eta, "Electron_eta[nElectron]/F");
   tree->Branch("Electron_phi", b_Electron_phi, "Electron_phi[nElectron]/F");
   tree->Branch("Electron_m", b_Electron_m, "Electron_m[nElectron]/F");
-  tree->Branch("Electron_q", b_Electron_q, "Electron_q[nElectron]/S");
+  tree->Branch("Electron_charge", b_Electron_charge, "Electron_charge[nElectron]/I");
   tree->Branch("Electron_relIso", b_Electron_relIso, "Electron_relIso[nElectron]/F");
 
-  tree->Branch("nJet", &b_nJet, "nJet/s");
+  tree->Branch("nJet", &b_nJet, "nJet/i");
   tree->Branch("Jet_pt", b_Jet_pt, "Jet_pt[nJet]/F");
   tree->Branch("Jet_eta", b_Jet_eta, "Jet_eta[nJet]/F");
   tree->Branch("Jet_phi", b_Jet_phi, "Jet_phi[nJet]/F");
   tree->Branch("Jet_m", b_Jet_m, "Jet_m[nJet]/F");
-  tree->Branch("Jet_flav", b_Jet_flav, "Jet_flav[nJet]/S");
+  tree->Branch("Jet_flav", b_Jet_flav, "Jet_flav[nJet]/I");
   tree->Branch("Jet_bTag", b_Jet_bTag, "Jet_bTag[nJet]/F");
 
   const int nx = 64, ny = 64;
@@ -147,7 +147,7 @@ void delphes2Image(const std::string finName, const std::string foutName)
       b_Muon_eta[b_nMuon] = muon->Eta;
       b_Muon_phi[b_nMuon] = muon->Phi;
       b_Muon_m[b_nMuon] = p4.M();
-      b_Muon_q[b_nMuon] = muon->Charge;
+      b_Muon_charge[b_nMuon] = muon->Charge;
 
       b_Muon_relIso[b_nMuon] = muon->IsolationVar;///muon->PT;
 
@@ -164,7 +164,7 @@ void delphes2Image(const std::string finName, const std::string foutName)
       b_Electron_eta[b_nElectron] = electron->Eta;
       b_Electron_phi[b_nElectron] = electron->Phi;
       b_Electron_m[b_nElectron] = p4.M();
-      b_Electron_q[b_nElectron] = electron->Charge;
+      b_Electron_charge[b_nElectron] = electron->Charge;
 
       b_Electron_relIso[b_nElectron] = electron->IsolationVarRhoCorr;///electron->PT;
 
