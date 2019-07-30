@@ -19,12 +19,31 @@ cd ..
 ```
 You will have DELPHES.root 
 
-## Step3: Reduce root file / project on a MxM "image"
-```
-./run.py delphes2Image.C DELPHES.root FLAT.root
-```
-Then you will have FLAT.root which contains a flat TTree "Events".
-Branch names are similar to the CMS NanoAOD, hoping to be analyzed with almost same analysis macro.
+## Step3: project on a MxM "image"
+We use NERSC's script to convert Delphes root files to hdf5 with image projections.
+- File names should be in a form of SAMPLENAME-SUFFIX.root
+- SAMPLENAME should be in the cross section table, config/DelphesXSec
+  - RPV10\_1400\_850
+  - QCDBkg\_JZ3\_160\_400
+  - QCDBkg\_JZ4\_400\_800
+  - QCDBkg\_JZ5\_800\_1300
+  - QCDBkg\_JZ6\_1300\_1800
+  - QCDBkg\_JZ7\_1800\_2500
+  - QCDBkg\_JZ8\_2500\_3200
+  - QCDBkg\_JZ9\_3200\_3900
+  - QCDBkg\_JZ10\_3900\_4600
+  - QCDBkg\_JZ11\_4600\_5300
+  - QCDBkg\_JZ12\_5300\_7000
+- List of files in a txt file
 
-## Step4: Convert flat trees to hdf5
-TBA
+Example:
+```
+mv DELPHES.root RPV10_1400_850-xxxx.root
+echo ../RPV10_1400_850-xxxx.root > fileList.txt ## NOTE the relative path
+```
+
+```
+git clone https://github.com/eracah/atlas_dl
+cd atlas_dl
+./scripts/prepare_data.py --input-type delphes --output-h5 ../../data.h5 --bins 64 ../fileList.txt 
+```
