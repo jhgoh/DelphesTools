@@ -12,8 +12,8 @@ R__LOAD_LIBRARY(libDelphes)
 
 //------------------------------------------------------------------------------
 // Global options to switch on/off output branches
-const bool doSubJet = false;
-const bool doPrintDebug = true;
+const bool doSubJet = true;
+const bool doPrintDebug = false;
 
 //------------------------------------------------------------------------------
 int getLast(TClonesArray* branch, const int iGen)
@@ -356,7 +356,7 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
       b_Jet_partonIdx[b_nJet] = -1;
 
       // Keep the subjet particles
-      TRefArray cons = jet->Constituents;
+      TRefArray cons = jet->Particles; //Constituents;
       std::set<const GenParticle*> matches;
       for ( int j=0; j<cons.GetEntriesFast(); ++j ) {
         if ( b_nSubJet > SubJet_N ) break;
@@ -364,14 +364,17 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
         const TObject* obj = cons.At(j);
         if ( !obj ) continue;
 
+        if ( doSubJet ) {
+          const Track* track = dynamic_cast<const Track*>(obj);
+          const Tower* tower = dynamic_cast<const Tower*>(obj);
+          const Muon* muon = dynamic_cast<const Muon*>(obj);
+          const Electron* elec = dynamic_cast<const Electron*>(obj);
+          const Photon* phot = dynamic_cast<const Photon*>(obj);
+          const GenParticle* gen = dynamic_cast<const GenParticle*>(obj);
 
-        const Track* track = dynamic_cast<const Track*>(obj);
-        const Tower* tower = dynamic_cast<const Tower*>(obj);
-        if ( track ) {
-          const GenParticle* p = dynamic_cast<const GenParticle*>(track->Particle.GetObject());
-          findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
-
-          if ( doSubJet ) {
+          if ( track ) {
+            const GenParticle* p = dynamic_cast<const GenParticle*>(track->Particle.GetObject());
+            findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
             b_SubJet_pt[b_nSubJet] = track->PT;
             b_SubJet_eta[b_nSubJet] = track->Eta;
             b_SubJet_phi[b_nSubJet] = track->Phi;
@@ -379,9 +382,7 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
             //b_SubJet_pdgId[b_nSubJet] = track->Charge*211;
             b_SubJet_pdgId[b_nSubJet] = p->PID;
           }
-        }
-        else if ( tower ) {
-          if ( doSubJet ) {
+          else if ( tower ) {
             b_SubJet_pt[b_nSubJet] = tower->ET;
             b_SubJet_eta[b_nSubJet] = tower->Eta;
             b_SubJet_phi[b_nSubJet] = tower->Phi;
@@ -389,25 +390,50 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
             //const bool isPhoton = ( tower->Eem > tower->Ehad ); // Crude estimation
             //if ( isPhoton ) b_SubJet_pdgId[b_nSubJet] = 22; // photons
             //else b_SubJet_pdgId[b_nSubJet] = 2112; // set as neutron
-          }
-          int nPhoton = 0;
-          TRefArray ps = tower->Particles;
-          for ( int k=0; k<ps.GetEntries(); ++k ) {
-            const GenParticle* p = dynamic_cast<const GenParticle*>(ps.At(k));
-            findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
+            int nPhoton = 0;
+            TRefArray ps = tower->Particles;
+            for ( int k=0; k<ps.GetEntries(); ++k ) {
+              const GenParticle* p = dynamic_cast<const GenParticle*>(ps.At(k));
+              findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
 
-            if ( p->PID == 22 ) ++nPhoton;
-          }
-          if ( doSubJet ) {
+              if ( p->PID == 22 ) ++nPhoton;
+            }
             b_SubJet_pdgId[b_nSubJet] = nPhoton > 0 ? 22 : 2112; // set as neutron if no photon found in this tower
           }
-        }
-        else {
-          std::cout << obj->IsA()->GetName() << endl;
-          continue;
-        }
+          else if ( muon ) {
+            b_SubJet_pt[b_nSubJet] = muon->PT;
+            b_SubJet_eta[b_nSubJet] = muon->Eta;
+            b_SubJet_phi[b_nSubJet] = muon->Phi;
+            b_SubJet_q[b_nSubJet] = muon->Charge;
+            b_SubJet_pdgId[b_nSubJet] = muon->Charge*-13;
+          }
+          else if ( elec ) {
+            b_SubJet_pt[b_nSubJet] = elec->PT;
+            b_SubJet_eta[b_nSubJet] = elec->Eta;
+            b_SubJet_phi[b_nSubJet] = elec->Phi;
+            b_SubJet_q[b_nSubJet] = elec->Charge;
+            b_SubJet_pdgId[b_nSubJet] = track->Charge*-11;
+          }
+          else if ( phot ) {
+            b_SubJet_pt[b_nSubJet] = phot->PT;
+            b_SubJet_eta[b_nSubJet] = phot->Eta;
+            b_SubJet_phi[b_nSubJet] = phot->Phi;
+            b_SubJet_q[b_nSubJet] = 0;
+            b_SubJet_pdgId[b_nSubJet] = 22;
+          }
+          else if ( gen ) {
+            b_SubJet_pt[b_nSubJet] = gen->PT;
+            b_SubJet_eta[b_nSubJet] = gen->Eta;
+            b_SubJet_phi[b_nSubJet] = gen->Phi;
+            b_SubJet_q[b_nSubJet] = gen->Charge;
+            //b_SubJet_pdgId[b_nSubJet] = track->Charge*211;
+            b_SubJet_pdgId[b_nSubJet] = gen->PID;
+          }
+          else {
+            if ( doPrintDebug ) std::cout << obj->IsA()->GetName() << endl;
+            continue;
+          }
 
-        if ( doSubJet ) {
           b_SubJet_jetIdx[b_nSubJet] = b_nJet;
           ++b_nSubJet;
         }
