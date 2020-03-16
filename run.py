@@ -15,6 +15,6 @@ gSystem.AddDynamicPath(delphesPath)
 gSystem.AddLinkedLibs('-L"%s"' % delphesPath)
 gSystem.Load("libDelphes")
 
-gROOT.ProcessLine(".L %s++" % macro)
+gROOT.ProcessLine(".L %s+" % macro)
 gROOT.ProcessLine('%s("%s", "%s");' % (macro.rsplit('.')[0], inFile, outFile))
 

@@ -12,7 +12,7 @@ R__LOAD_LIBRARY(libDelphes)
 
 //------------------------------------------------------------------------------
 // Global options to switch on/off output branches
-const bool doSubJet = true;
+const bool dojetDau = true;
 const bool doPrintDebug = false;
 
 //------------------------------------------------------------------------------
@@ -74,11 +74,11 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
   float b_Jet_bTag[Jet_N];
   int b_Jet_partonIdx[Jet_N];
 
-  const unsigned int SubJet_N = 10000;
-  unsigned int b_nSubJet;
-  float b_SubJet_pt[SubJet_N], b_SubJet_eta[SubJet_N], b_SubJet_phi[SubJet_N];
-  int b_SubJet_q[SubJet_N], b_SubJet_pdgId[SubJet_N];
-  unsigned int b_SubJet_jetIdx[SubJet_N];
+  const unsigned int jetDau_N = 10000;
+  unsigned int b_njetDau;
+  float b_jetDau_pt[jetDau_N], b_jetDau_eta[jetDau_N], b_jetDau_phi[jetDau_N];
+  int b_jetDau_q[jetDau_N], b_jetDau_pdgId[jetDau_N];
+  unsigned int b_jetDau_jetIdx[jetDau_N];
 
   const unsigned int GenParton_N = 1000;
   unsigned int b_nGenParton;
@@ -123,14 +123,14 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
   tree->Branch("Jet_bTag", b_Jet_bTag, "Jet_bTag[nJet]/F");
   tree->Branch("Jet_partonIdx", b_Jet_partonIdx, "Jet_partonIdx[nJet]/I");
 
-  if ( doSubJet ) {
-    tree->Branch("nSubJet", &b_nSubJet, "nSubJet/i");
-    tree->Branch("SubJet_pt", b_SubJet_pt, "SubJet_pt[nSubJet]/F");
-    tree->Branch("SubJet_eta", b_SubJet_eta, "SubJet_eta[nSubJet]/F");
-    tree->Branch("SubJet_phi", b_SubJet_phi, "SubJet_phi[nSubJet]/F");
-    tree->Branch("SubJet_q", b_SubJet_q, "SubJet_q[nSubJet]/I");
-    tree->Branch("SubJet_pdgId", b_SubJet_pdgId, "SubJet_pdgId[nSubJet]/I");
-    tree->Branch("SubJet_jetIdx", b_SubJet_jetIdx, "SubJet_jetIdx[nSubJet]/I");
+  if ( dojetDau ) {
+    tree->Branch("njetDau", &b_njetDau, "njetDau/i");
+    tree->Branch("jetDau_pt", b_jetDau_pt, "jetDau_pt[njetDau]/F");
+    tree->Branch("jetDau_eta", b_jetDau_eta, "jetDau_eta[njetDau]/F");
+    tree->Branch("jetDau_phi", b_jetDau_phi, "jetDau_phi[njetDau]/F");
+    tree->Branch("jetDau_q", b_jetDau_q, "jetDau_q[njetDau]/I");
+    tree->Branch("jetDau_pdgId", b_jetDau_pdgId, "jetDau_pdgId[njetDau]/I");
+    tree->Branch("jetDau_jetIdx", b_jetDau_jetIdx, "jetDau_jetIdx[njetDau]/I");
   }
 
   tree->Branch("nGenParton", &b_nGenParton, "nGenParton/i");
@@ -181,34 +181,36 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
     // Build gen particle collection, for the ttbar decays
     std::vector<std::vector<int> > GenParton_topDaus;
     b_nGenParton = 0;
-    for ( int i=0; i<branchGen->GetEntries(); ++i ) {
-      const GenParticle* p = (const GenParticle*)branchGen->At(i);
-      const int pid = p->PID, absId = abs(p->PID);
-      if ( absId != 6 ) continue; // top only.
-      if ( p->D1 == -1 or p->D2 == -1 ) continue; // should have valid daughters
+    if ( branchGen ) {
+      for ( int i=0; i<branchGen->GetEntries(); ++i ) {
+        const GenParticle* p = (const GenParticle*)branchGen->At(i);
+        const int pid = p->PID, absId = abs(p->PID);
+        if ( absId != 6 ) continue; // top only.
+        if ( p->D1 == -1 or p->D2 == -1 ) continue; // should have valid daughters
 
-      bool isDupl = false;
-      for ( int j=p->D1; j<=p->D2; ++j ) {
-        const GenParticle* dau  = (const GenParticle*)branchGen->At(j);
-        if ( pid == dau->PID ) { isDupl = true; break; }
+        bool isDupl = false;
+        for ( int j=p->D1; j<=p->D2; ++j ) {
+          const GenParticle* dau  = (const GenParticle*)branchGen->At(j);
+          if ( pid == dau->PID ) { isDupl = true; break; }
+        }
+        if ( isDupl ) continue;
+
+        GenParton_topDaus.emplace_back();
+        for ( int j=p->D1; j<=p->D2; ++j ) GenParton_topDaus.back().push_back(j);
+
+        // Fill top quarks
+        b_GenParton_pt[b_nGenParton] = p->PT;
+        b_GenParton_eta[b_nGenParton] = p->Eta;
+        b_GenParton_phi[b_nGenParton] = p->Phi;
+        b_GenParton_m[b_nGenParton] = p->Mass;
+        b_GenParton_pdgId[b_nGenParton] = p->PID;
+        b_GenParton_q3[b_nGenParton] = p->Charge*3;
+        b_GenParton_dau1[b_nGenParton] = b_GenParton_dau2[b_nGenParton] = -1;
+        b_GenParton_mother[b_nGenParton] = -1;
+
+        ++b_nGenParton;
+        if ( b_nGenParton >= GenParton_N ) break;
       }
-      if ( isDupl ) continue;
-
-      GenParton_topDaus.emplace_back();
-      for ( int j=p->D1; j<=p->D2; ++j ) GenParton_topDaus.back().push_back(j);
-
-      // Fill top quarks
-      b_GenParton_pt[b_nGenParton] = p->PT;
-      b_GenParton_eta[b_nGenParton] = p->Eta;
-      b_GenParton_phi[b_nGenParton] = p->Phi;
-      b_GenParton_m[b_nGenParton] = p->Mass;
-      b_GenParton_pdgId[b_nGenParton] = p->PID;
-      b_GenParton_q3[b_nGenParton] = p->Charge*3;
-      b_GenParton_dau1[b_nGenParton] = b_GenParton_dau2[b_nGenParton] = -1;
-      b_GenParton_mother[b_nGenParton] = -1;
-
-      ++b_nGenParton;
-      if ( b_nGenParton >= GenParton_N ) break;
     }
 
     std::map<const GenParticle*, int> dauPtrToIdx;
@@ -237,6 +239,7 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
         ++b_nGenParton;
         if ( b_nGenParton >= GenParton_N ) break;
 
+/*
         if ( abs(dau->PID) < 23 or abs(dau->PID) > 25 ) continue;
         if ( dau->D1 == -1 or dau->D2 == -1 ) continue;
         dau = (const GenParticle*)branchGen->At(getLast(branchGen, j));
@@ -295,11 +298,12 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
         b_GenParton_dau2[iDau] = iDau+ngdau;
 
         if ( b_nGenParton >= GenParton_N ) break;
+*/
       }
       if ( b_nGenParton >= GenParton_N ) break;
     }
 
-    if ( branchMET->GetEntries() > 0 ) {
+    if ( branchMET and branchMET->GetEntries() > 0 ) {
       const MissingET* met = (const MissingET*)branchMET->At(0);
       b_MET_pt = met->MET;
       b_MET_phi = met->Phi;
@@ -309,235 +313,243 @@ void delphes2FlatTuple(const std::string finName, const std::string foutName)
     }
 
     b_nMuon = 0;
-    for ( int i=0; i<branchMuon->GetEntries(); ++i ) {
-      const Muon* muon = (const Muon*) branchMuon->At(i);
-      const TLorentzVector p4 = muon->P4();
+    if ( branchMuon ) {
+      for ( int i=0; i<branchMuon->GetEntries(); ++i ) {
+        const Muon* muon = (const Muon*) branchMuon->At(i);
+        const TLorentzVector p4 = muon->P4();
 
-      b_Muon_pt[b_nMuon] = muon->PT;
-      b_Muon_eta[b_nMuon] = muon->Eta;
-      b_Muon_phi[b_nMuon] = muon->Phi;
-      b_Muon_m[b_nMuon] = p4.M();
-      b_Muon_q[b_nMuon] = muon->Charge;
+        b_Muon_pt[b_nMuon] = muon->PT;
+        b_Muon_eta[b_nMuon] = muon->Eta;
+        b_Muon_phi[b_nMuon] = muon->Phi;
+        b_Muon_m[b_nMuon] = p4.M();
+        b_Muon_q[b_nMuon] = muon->Charge;
 
-      b_Muon_relIso[b_nMuon] = muon->IsolationVar;///muon->PT;
+        b_Muon_relIso[b_nMuon] = muon->IsolationVar;///muon->PT;
 
-      ++b_nMuon;
-      if ( b_nMuon >= Muon_N ) break;
+        ++b_nMuon;
+        if ( b_nMuon >= Muon_N ) break;
+      }
     }
 
     b_nElectron = 0;
-    for ( int i=0; i<branchElectron->GetEntries(); ++i ) {
-      const Electron* electron = (const Electron*) branchElectron->At(i);
-      const TLorentzVector p4 = electron->P4();
+    if ( branchElectron ) {
+      for ( int i=0; i<branchElectron->GetEntries(); ++i ) {
+        const Electron* electron = (const Electron*) branchElectron->At(i);
+        const TLorentzVector p4 = electron->P4();
 
-      b_Electron_pt[b_nElectron] = electron->PT;
-      b_Electron_eta[b_nElectron] = electron->Eta;
-      b_Electron_phi[b_nElectron] = electron->Phi;
-      b_Electron_m[b_nElectron] = p4.M();
-      b_Electron_q[b_nElectron] = electron->Charge;
+        b_Electron_pt[b_nElectron] = electron->PT;
+        b_Electron_eta[b_nElectron] = electron->Eta;
+        b_Electron_phi[b_nElectron] = electron->Phi;
+        b_Electron_m[b_nElectron] = p4.M();
+        b_Electron_q[b_nElectron] = electron->Charge;
 
-      b_Electron_relIso[b_nElectron] = electron->IsolationVarRhoCorr;///electron->PT;
+        b_Electron_relIso[b_nElectron] = electron->IsolationVarRhoCorr;///electron->PT;
 
-      ++b_nElectron;
-      if ( b_nElectron >= Electron_N ) break;
+        ++b_nElectron;
+        if ( b_nElectron >= Electron_N ) break;
+      }
     }
 
-    b_nJet = b_nSubJet = 0;
-    for ( int i=0; i<branchJet->GetEntries(); ++i ) {
-      const Jet* jet = (const Jet*) branchJet->At(i);
-      //const TLorentzVector p4 = jet->P4();
+    b_nJet = b_njetDau = 0;
+    if ( branchJet ) {
+      for ( int i=0; i<branchJet->GetEntries(); ++i ) {
+        const Jet* jet = (const Jet*) branchJet->At(i);
+        //const TLorentzVector p4 = jet->P4();
 
-      b_Jet_pt[b_nJet] = jet->PT;
-      b_Jet_eta[b_nJet] = jet->Eta;
-      b_Jet_phi[b_nJet] = jet->Phi;
-      b_Jet_m[b_nJet] = jet->Mass;
-      b_Jet_flav[b_nJet] = jet->Flavor;
-      b_Jet_bTag[b_nJet] = jet->BTag;
-      b_Jet_partonIdx[b_nJet] = -1;
+        b_Jet_pt[b_nJet] = jet->PT;
+        b_Jet_eta[b_nJet] = jet->Eta;
+        b_Jet_phi[b_nJet] = jet->Phi;
+        b_Jet_m[b_nJet] = jet->Mass;
+        b_Jet_flav[b_nJet] = jet->Flavor;
+        b_Jet_bTag[b_nJet] = jet->BTag;
+        b_Jet_partonIdx[b_nJet] = -1;
 
-      // Keep the subjet particles
-      TRefArray cons = jet->Particles; //Constituents;
-      std::set<const GenParticle*> matches;
-      for ( int j=0; j<cons.GetEntriesFast(); ++j ) {
-        if ( b_nSubJet > SubJet_N ) break;
+        // Keep the subjet particles
+        TRefArray cons = jet->Particles; //Constituents;
+        std::set<const GenParticle*> matches;
+        for ( int j=0; j<cons.GetEntriesFast(); ++j ) {
+          if ( b_njetDau > jetDau_N ) break;
 
-        const TObject* obj = cons.At(j);
-        if ( !obj ) continue;
+          const TObject* obj = cons.At(j);
+          if ( !obj ) continue;
 
-        if ( doSubJet ) {
-          const Track* track = dynamic_cast<const Track*>(obj);
-          const Tower* tower = dynamic_cast<const Tower*>(obj);
-          const Muon* muon = dynamic_cast<const Muon*>(obj);
-          const Electron* elec = dynamic_cast<const Electron*>(obj);
-          const Photon* phot = dynamic_cast<const Photon*>(obj);
-          const GenParticle* gen = dynamic_cast<const GenParticle*>(obj);
+          if ( dojetDau ) {
+            const Track* track = dynamic_cast<const Track*>(obj);
+            const Tower* tower = dynamic_cast<const Tower*>(obj);
+            const Muon* muon = dynamic_cast<const Muon*>(obj);
+            const Electron* elec = dynamic_cast<const Electron*>(obj);
+            const Photon* phot = dynamic_cast<const Photon*>(obj);
+            const GenParticle* gen = dynamic_cast<const GenParticle*>(obj);
 
-          if ( track ) {
-            const GenParticle* p = dynamic_cast<const GenParticle*>(track->Particle.GetObject());
-            findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
-            b_SubJet_pt[b_nSubJet] = track->PT;
-            b_SubJet_eta[b_nSubJet] = track->Eta;
-            b_SubJet_phi[b_nSubJet] = track->Phi;
-            b_SubJet_q[b_nSubJet] = track->Charge;
-            //b_SubJet_pdgId[b_nSubJet] = track->Charge*211;
-            b_SubJet_pdgId[b_nSubJet] = p->PID;
-          }
-          else if ( tower ) {
-            b_SubJet_pt[b_nSubJet] = tower->ET;
-            b_SubJet_eta[b_nSubJet] = tower->Eta;
-            b_SubJet_phi[b_nSubJet] = tower->Phi;
-            b_SubJet_q[b_nSubJet] = 0;
-            //const bool isPhoton = ( tower->Eem > tower->Ehad ); // Crude estimation
-            //if ( isPhoton ) b_SubJet_pdgId[b_nSubJet] = 22; // photons
-            //else b_SubJet_pdgId[b_nSubJet] = 2112; // set as neutron
-            int nPhoton = 0;
-            TRefArray ps = tower->Particles;
-            for ( int k=0; k<ps.GetEntries(); ++k ) {
-              const GenParticle* p = dynamic_cast<const GenParticle*>(ps.At(k));
+            if ( track ) {
+              const GenParticle* p = dynamic_cast<const GenParticle*>(track->Particle.GetObject());
               findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
-
-              if ( p->PID == 22 ) ++nPhoton;
+              b_jetDau_pt[b_njetDau] = track->PT;
+              b_jetDau_eta[b_njetDau] = track->Eta;
+              b_jetDau_phi[b_njetDau] = track->Phi;
+              b_jetDau_q[b_njetDau] = track->Charge;
+              //b_jetDau_pdgId[b_njetDau] = track->Charge*211;
+              b_jetDau_pdgId[b_njetDau] = p->PID;
             }
-            b_SubJet_pdgId[b_nSubJet] = nPhoton > 0 ? 22 : 2112; // set as neutron if no photon found in this tower
+            else if ( tower ) {
+              b_jetDau_pt[b_njetDau] = tower->ET;
+              b_jetDau_eta[b_njetDau] = tower->Eta;
+              b_jetDau_phi[b_njetDau] = tower->Phi;
+              b_jetDau_q[b_njetDau] = 0;
+              //const bool isPhoton = ( tower->Eem > tower->Ehad ); // Crude estimation
+              //if ( isPhoton ) b_jetDau_pdgId[b_njetDau] = 22; // photons
+              //else b_jetDau_pdgId[b_njetDau] = 2112; // set as neutron
+              int nPhoton = 0;
+              TRefArray ps = tower->Particles;
+              for ( int k=0; k<ps.GetEntries(); ++k ) {
+                const GenParticle* p = dynamic_cast<const GenParticle*>(ps.At(k));
+                findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
+
+                if ( p->PID == 22 ) ++nPhoton;
+              }
+              b_jetDau_pdgId[b_njetDau] = nPhoton > 0 ? 22 : 2112; // set as neutron if no photon found in this tower
+            }
+            else if ( muon ) {
+              b_jetDau_pt[b_njetDau] = muon->PT;
+              b_jetDau_eta[b_njetDau] = muon->Eta;
+              b_jetDau_phi[b_njetDau] = muon->Phi;
+              b_jetDau_q[b_njetDau] = muon->Charge;
+              b_jetDau_pdgId[b_njetDau] = muon->Charge*-13;
+            }
+            else if ( elec ) {
+              b_jetDau_pt[b_njetDau] = elec->PT;
+              b_jetDau_eta[b_njetDau] = elec->Eta;
+              b_jetDau_phi[b_njetDau] = elec->Phi;
+              b_jetDau_q[b_njetDau] = elec->Charge;
+              b_jetDau_pdgId[b_njetDau] = track->Charge*-11;
+            }
+            else if ( phot ) {
+              b_jetDau_pt[b_njetDau] = phot->PT;
+              b_jetDau_eta[b_njetDau] = phot->Eta;
+              b_jetDau_phi[b_njetDau] = phot->Phi;
+              b_jetDau_q[b_njetDau] = 0;
+              b_jetDau_pdgId[b_njetDau] = 22;
+            }
+            else if ( gen ) {
+              b_jetDau_pt[b_njetDau] = gen->PT;
+              b_jetDau_eta[b_njetDau] = gen->Eta;
+              b_jetDau_phi[b_njetDau] = gen->Phi;
+              b_jetDau_q[b_njetDau] = gen->Charge;
+              //b_jetDau_pdgId[b_njetDau] = track->Charge*211;
+              b_jetDau_pdgId[b_njetDau] = gen->PID;
+            }
+            else {
+              if ( doPrintDebug ) std::cout << obj->IsA()->GetName() << endl;
+              continue;
+            }
+
+            b_jetDau_jetIdx[b_njetDau] = b_nJet;
+            ++b_njetDau;
           }
-          else if ( muon ) {
-            b_SubJet_pt[b_nSubJet] = muon->PT;
-            b_SubJet_eta[b_nSubJet] = muon->Eta;
-            b_SubJet_phi[b_nSubJet] = muon->Phi;
-            b_SubJet_q[b_nSubJet] = muon->Charge;
-            b_SubJet_pdgId[b_nSubJet] = muon->Charge*-13;
-          }
-          else if ( elec ) {
-            b_SubJet_pt[b_nSubJet] = elec->PT;
-            b_SubJet_eta[b_nSubJet] = elec->Eta;
-            b_SubJet_phi[b_nSubJet] = elec->Phi;
-            b_SubJet_q[b_nSubJet] = elec->Charge;
-            b_SubJet_pdgId[b_nSubJet] = track->Charge*-11;
-          }
-          else if ( phot ) {
-            b_SubJet_pt[b_nSubJet] = phot->PT;
-            b_SubJet_eta[b_nSubJet] = phot->Eta;
-            b_SubJet_phi[b_nSubJet] = phot->Phi;
-            b_SubJet_q[b_nSubJet] = 0;
-            b_SubJet_pdgId[b_nSubJet] = 22;
-          }
-          else if ( gen ) {
-            b_SubJet_pt[b_nSubJet] = gen->PT;
-            b_SubJet_eta[b_nSubJet] = gen->Eta;
-            b_SubJet_phi[b_nSubJet] = gen->Phi;
-            b_SubJet_q[b_nSubJet] = gen->Charge;
-            //b_SubJet_pdgId[b_nSubJet] = track->Charge*211;
-            b_SubJet_pdgId[b_nSubJet] = gen->PID;
-          }
-          else {
-            if ( doPrintDebug ) std::cout << obj->IsA()->GetName() << endl;
+        }
+
+        double dR0 = 1e9;
+        TLorentzVector jetLVec;
+        jetLVec.SetPtEtaPhiM(b_Jet_pt[i], b_Jet_eta[i], b_Jet_phi[i], b_Jet_m[i]);
+        for ( auto p : matches ) {
+          const int idx1 = dauPtrToIdx[p];
+          const int dau1 = b_GenParton_dau1[idx1];
+          if ( dau1 != -1 ) continue;
+          const int pdgId = b_GenParton_pdgId[idx1];
+          if ( abs(pdgId) > 5 ) continue; // match quarks only
+
+          const int idx0 = b_Jet_partonIdx[b_nJet];
+          if ( idx0 == -1 ) {
+            TLorentzVector lvec0;
+            lvec0.SetPtEtaPhiM(b_GenParton_pt[idx0], b_GenParton_eta[idx0], b_GenParton_phi[idx0], b_GenParton_m[idx0]);
+            dR0 = jetLVec.DeltaR(lvec0);
+            b_Jet_partonIdx[b_nJet] = idx1;
             continue;
           }
 
-          b_SubJet_jetIdx[b_nSubJet] = b_nJet;
-          ++b_nSubJet;
-        }
-      }
-
-      double dR0 = 1e9;
-      TLorentzVector jetLVec;
-      jetLVec.SetPtEtaPhiM(b_Jet_pt[i], b_Jet_eta[i], b_Jet_phi[i], b_Jet_m[i]);
-      for ( auto p : matches ) {
-        const int idx1 = dauPtrToIdx[p];
-        const int dau1 = b_GenParton_dau1[idx1];
-        if ( dau1 != -1 ) continue;
-        const int pdgId = b_GenParton_pdgId[idx1];
-        if ( abs(pdgId) > 5 ) continue; // match quarks only
-
-        const int idx0 = b_Jet_partonIdx[b_nJet];
-        if ( idx0 == -1 ) {
-          TLorentzVector lvec0;
-          lvec0.SetPtEtaPhiM(b_GenParton_pt[idx0], b_GenParton_eta[idx0], b_GenParton_phi[idx0], b_GenParton_m[idx0]);
-          dR0 = jetLVec.DeltaR(lvec0);
-          b_Jet_partonIdx[b_nJet] = idx1;
-          continue;
-        }
-
-        TLorentzVector lvec1;
-        lvec1.SetPtEtaPhiM(b_GenParton_pt[idx1], b_GenParton_eta[idx1], b_GenParton_phi[idx1], b_GenParton_m[idx1]);
-        const double dR1 = jetLVec.DeltaR(lvec1);
-        if ( dR0 > dR1 ) {
-          dR0 = dR1;
-          b_Jet_partonIdx[b_nJet] = idx1;
-          if ( doPrintDebug ) {
-            std::cout << "Multiple matches detected on Jet" << b_nJet << " (" << b_Jet_pt[i] << "," << b_Jet_eta[i] << "," << b_Jet_phi[i] << "). Replacing best match:"
-                      << "\n  <- PdgId=" << b_GenParton_pdgId[idx0] << " (" << b_GenParton_pt[idx0] << "," << b_GenParton_eta[idx0] << "," << b_GenParton_phi[idx0] << ")"
-                      << "\n  -> PdgId=" << b_GenParton_pdgId[idx1] << " (" << b_GenParton_pt[idx1] << "," << b_GenParton_eta[idx1] << "," << b_GenParton_phi[idx1] << ")"
-                      << endl;
+          TLorentzVector lvec1;
+          lvec1.SetPtEtaPhiM(b_GenParton_pt[idx1], b_GenParton_eta[idx1], b_GenParton_phi[idx1], b_GenParton_m[idx1]);
+          const double dR1 = jetLVec.DeltaR(lvec1);
+          if ( dR0 > dR1 ) {
+            dR0 = dR1;
+            b_Jet_partonIdx[b_nJet] = idx1;
+            if ( doPrintDebug ) {
+              std::cout << "Multiple matches detected on Jet" << b_nJet << " (" << b_Jet_pt[i] << "," << b_Jet_eta[i] << "," << b_Jet_phi[i] << "). Replacing best match:"
+                << "\n  <- PdgId=" << b_GenParton_pdgId[idx0] << " (" << b_GenParton_pt[idx0] << "," << b_GenParton_eta[idx0] << "," << b_GenParton_phi[idx0] << ")"
+                << "\n  -> PdgId=" << b_GenParton_pdgId[idx1] << " (" << b_GenParton_pt[idx1] << "," << b_GenParton_eta[idx1] << "," << b_GenParton_phi[idx1] << ")"
+                << endl;
+            }
           }
         }
-      }
 
-      ++b_nJet;
-      if ( b_nJet >= Jet_N ) break;
+        ++b_nJet;
+        if ( b_nJet >= Jet_N ) break;
+      }
     }
 
     b_nGenJet = 0; //b_nSubGenJet = 0;
-    for ( int i=0; i<branchGenJet->GetEntries(); ++i ) {
-      const Jet* jet = (const Jet*) branchGenJet->At(i);
-      //const TLorentzVector p4 = jet->P4();
+    if ( branchGenJet ) {
+      for ( int i=0; i<branchGenJet->GetEntries(); ++i ) {
+        const Jet* jet = (const Jet*) branchGenJet->At(i);
+        //const TLorentzVector p4 = jet->P4();
 
-      b_GenJet_pt[b_nGenJet] = jet->PT;
-      b_GenJet_eta[b_nGenJet] = jet->Eta;
-      b_GenJet_phi[b_nGenJet] = jet->Phi;
-      b_GenJet_m[b_nGenJet] = jet->Mass;
-      b_GenJet_partonIdx[b_nGenJet] = -1;
+        b_GenJet_pt[b_nGenJet] = jet->PT;
+        b_GenJet_eta[b_nGenJet] = jet->Eta;
+        b_GenJet_phi[b_nGenJet] = jet->Phi;
+        b_GenJet_m[b_nGenJet] = jet->Mass;
+        b_GenJet_partonIdx[b_nGenJet] = -1;
 
-      // Loop over the constituents to find its origin
-      TRefArray cons = jet->Constituents;
-      std::set<const GenParticle*> matches;
-      for ( int j=0; j<cons.GetEntriesFast(); ++j ) {
-        const TObject* obj = cons.At(j);
-        if ( !obj ) continue;
+        // Loop over the constituents to find its origin
+        TRefArray cons = jet->Constituents;
+        std::set<const GenParticle*> matches;
+        for ( int j=0; j<cons.GetEntriesFast(); ++j ) {
+          const TObject* obj = cons.At(j);
+          if ( !obj ) continue;
 
-        const GenParticle* p = dynamic_cast<const GenParticle*>(obj);
-        if ( !p ) continue;
+          const GenParticle* p = dynamic_cast<const GenParticle*>(obj);
+          if ( !p ) continue;
 
-        findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
-      }
-
-      double dR0 = 1e9;
-      TLorentzVector genJetLVec;
-      genJetLVec.SetPtEtaPhiM(b_GenJet_pt[i], b_GenJet_eta[i], b_GenJet_phi[i], b_GenJet_m[i]);
-      for ( auto p : matches ) {
-        const int idx1 = dauPtrToIdx[p];
-        const int dau1 = b_GenParton_dau1[idx1];
-        if ( dau1 != -1 ) continue;
-        const int pdgId = b_GenParton_pdgId[idx1];
-        if ( abs(pdgId) > 5 ) continue; // match quarks only
-
-        const int idx0 = b_GenJet_partonIdx[b_nGenJet];
-        if ( idx0 == -1 ) {
-          TLorentzVector lvec0;
-          lvec0.SetPtEtaPhiM(b_GenParton_pt[idx0], b_GenParton_eta[idx0], b_GenParton_phi[idx0], b_GenParton_m[idx0]);
-          dR0 = genJetLVec.DeltaR(lvec0);
-          b_GenJet_partonIdx[b_nGenJet] = idx1;
-          continue;
+          findPartonAncestors(p, branchGen, dauPtrToIdx, matches);
         }
 
-        TLorentzVector lvec1;
-        lvec1.SetPtEtaPhiM(b_GenParton_pt[idx1], b_GenParton_eta[idx1], b_GenParton_phi[idx1], b_GenParton_m[idx1]);
-        const double dR1 = genJetLVec.DeltaR(lvec1);
-        if ( dR0 > dR1 ) {
-          dR0 = dR1;
-          b_GenJet_partonIdx[b_nGenJet] = idx1;
-          if ( doPrintDebug ) {
-            std::cout << "Multiple matches detected on GenJet" << b_nGenJet << " (" << b_GenJet_pt[i] << "," << b_GenJet_eta[i] << "," << b_GenJet_phi[i] << "). Replacing best match:"
-                      << "\n  <- PdgId=" << b_GenParton_pdgId[idx0] << " (" << b_GenParton_pt[idx0] << "," << b_GenParton_eta[idx0] << "," << b_GenParton_phi[idx0] << ")"
-                      << "\n  -> PdgId=" << b_GenParton_pdgId[idx1] << " (" << b_GenParton_pt[idx1] << "," << b_GenParton_eta[idx1] << "," << b_GenParton_phi[idx1] << ")"
-                      << endl;
+        double dR0 = 1e9;
+        TLorentzVector genJetLVec;
+        genJetLVec.SetPtEtaPhiM(b_GenJet_pt[i], b_GenJet_eta[i], b_GenJet_phi[i], b_GenJet_m[i]);
+        for ( auto p : matches ) {
+          const int idx1 = dauPtrToIdx[p];
+          const int dau1 = b_GenParton_dau1[idx1];
+          if ( dau1 != -1 ) continue;
+          const int pdgId = b_GenParton_pdgId[idx1];
+          if ( abs(pdgId) > 5 ) continue; // match quarks only
+
+          const int idx0 = b_GenJet_partonIdx[b_nGenJet];
+          if ( idx0 == -1 ) {
+            TLorentzVector lvec0;
+            lvec0.SetPtEtaPhiM(b_GenParton_pt[idx0], b_GenParton_eta[idx0], b_GenParton_phi[idx0], b_GenParton_m[idx0]);
+            dR0 = genJetLVec.DeltaR(lvec0);
+            b_GenJet_partonIdx[b_nGenJet] = idx1;
+            continue;
           }
-        }
-        b_GenJet_partonIdx[b_nGenJet] = idx1;
-      }
 
-      ++b_nGenJet;
-      if ( b_nGenJet >= GenJet_N ) break;
+          TLorentzVector lvec1;
+          lvec1.SetPtEtaPhiM(b_GenParton_pt[idx1], b_GenParton_eta[idx1], b_GenParton_phi[idx1], b_GenParton_m[idx1]);
+          const double dR1 = genJetLVec.DeltaR(lvec1);
+          if ( dR0 > dR1 ) {
+            dR0 = dR1;
+            b_GenJet_partonIdx[b_nGenJet] = idx1;
+            if ( doPrintDebug ) {
+              std::cout << "Multiple matches detected on GenJet" << b_nGenJet << " (" << b_GenJet_pt[i] << "," << b_GenJet_eta[i] << "," << b_GenJet_phi[i] << "). Replacing best match:"
+                << "\n  <- PdgId=" << b_GenParton_pdgId[idx0] << " (" << b_GenParton_pt[idx0] << "," << b_GenParton_eta[idx0] << "," << b_GenParton_phi[idx0] << ")"
+                << "\n  -> PdgId=" << b_GenParton_pdgId[idx1] << " (" << b_GenParton_pt[idx1] << "," << b_GenParton_eta[idx1] << "," << b_GenParton_phi[idx1] << ")"
+                << endl;
+            }
+          }
+          b_GenJet_partonIdx[b_nGenJet] = idx1;
+        }
+
+        ++b_nGenJet;
+        if ( b_nGenJet >= GenJet_N ) break;
+      }
     }
 
     tree->Fill();
